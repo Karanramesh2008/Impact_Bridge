@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import json
@@ -11,6 +12,24 @@ from ai_service import (
     evaluate_proposal
 )
 
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    decode_access_token
+)
+
+from auth_db import (
+    init_db,
+    create_user,
+    get_user_by_email,
+    get_user_by_id
+)
+
+
+# ============================================================
+# APP
+# ============================================================
 
 app = FastAPI(
     title="ImpactBridge API",
@@ -36,6 +55,13 @@ app.add_middleware(
 
 
 # ============================================================
+# DATABASE
+# ============================================================
+
+init_db()
+
+
+# ============================================================
 # LOAD DATA
 # ============================================================
 
@@ -54,11 +80,11 @@ with open("projects.json", "r") as file:
 # ============================================================
 
 class CSRProject(BaseModel):
-    domain: str = Field(...)
-    location: str = Field(...)
-    beneficiary: str = Field(...)
+    domain: str
+    location: str
+    beneficiary: str
     budget: int = Field(..., gt=0)
-    expertise: str = Field(...)
+    expertise: str
 
 
 class TenderCreate(BaseModel):
@@ -120,6 +146,179 @@ class AIExplainMatchRequest(BaseModel):
 
 
 # ============================================================
+# AUTH MODELS
+# ============================================================
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+# ============================================================
+# AUTHENTICATION
+# ============================================================
+
+security = HTTPBearer()
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    try:
+        payload = decode_access_token(
+            credentials.credentials
+        )
+
+        user_id = int(
+            payload.get("sub")
+        )
+
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    user = get_user_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="User not found"
+        )
+
+    user.pop("password_hash", None)
+
+    return user
+
+
+# ============================================================
+# AUTH — REGISTER
+# ============================================================
+
+@app.post("/api/auth/register")
+def register(request: RegisterRequest):
+
+    name = request.name.strip()
+    email = request.email.strip().lower()
+    role = request.role.strip().lower()
+
+    if not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Name is required"
+        )
+
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Email is required"
+        )
+
+    if role not in ["corporate", "ngo"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Role must be corporate or ngo"
+        )
+
+    if len(request.password) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 6 characters"
+        )
+
+    existing_user = get_user_by_email(email)
+
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+
+    password_hash = hash_password(
+        request.password
+    )
+
+    user = create_user(
+        name=name,
+        email=email,
+        password_hash=password_hash,
+        role=role
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+
+    user.pop("password_hash", None)
+
+    return {
+        "message": "Registration successful",
+        "user": user
+    }
+
+
+# ============================================================
+# AUTH — LOGIN
+# ============================================================
+
+@app.post("/api/auth/login")
+def login(request: LoginRequest):
+
+    email = request.email.strip().lower()
+
+    user = get_user_by_email(email)
+
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    if not verify_password(
+        request.password,
+        user["password_hash"]
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    token = create_access_token({
+        "sub": str(user["id"]),
+        "role": user["role"]
+    })
+
+    user.pop("password_hash", None)
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user
+    }
+
+
+# ============================================================
+# AUTH — CURRENT USER
+# ============================================================
+
+@app.get("/api/auth/me")
+def get_me(
+    current_user=Depends(get_current_user)
+):
+    return current_user
+
+
+# ============================================================
 # HELPER FUNCTIONS
 # ============================================================
 
@@ -135,26 +334,41 @@ def save_projects():
 
 def find_ngo(ngo_id):
     return next(
-        (ngo for ngo in ngos if ngo["id"] == ngo_id),
+        (
+            ngo
+            for ngo in ngos
+            if ngo["id"] == ngo_id
+        ),
         None
     )
 
 
 def find_tender(tender_id):
     return next(
-        (tender for tender in tenders if tender["id"] == tender_id),
+        (
+            tender
+            for tender in tenders
+            if tender["id"] == tender_id
+        ),
         None
     )
 
 
 def find_project(project_id):
     return next(
-        (project for project in projects if project["id"] == project_id),
+        (
+            project
+            for project in projects
+            if project["id"] == project_id
+        ),
         None
     )
 
 
-def calculate_budget_score(proposed_budget, tender_budget):
+def calculate_budget_score(
+    proposed_budget,
+    tender_budget
+):
 
     if proposed_budget <= 0:
         return 0
@@ -237,7 +451,6 @@ def health():
 
 @app.get("/api/ngos")
 def get_ngos():
-
     return ngos
 
 
@@ -286,7 +499,6 @@ def compare_ngos(
 ):
 
     if len(request.ngo_ids) < 2:
-
         raise HTTPException(
             status_code=400,
             detail="Select at least 2 NGOs for comparison"
@@ -299,36 +511,23 @@ def compare_ngos(
         ngo = find_ngo(ngo_id)
 
         if ngo is None:
-
             raise HTTPException(
                 status_code=404,
                 detail=f"NGO {ngo_id} not found"
             )
 
         selected_ngos.append({
-
             "id": ngo["id"],
-
             "name": ngo["name"],
-
             "domains": ngo["domains"],
-
             "locations": ngo["locations"],
-
             "beneficiaries": ngo["beneficiaries"],
-
             "expertise": ngo["expertise"],
-
             "budget_min": ngo["budget_min"],
-
             "budget_max": ngo["budget_max"],
-
             "years_experience": ngo["years_experience"],
-
             "projects_completed": ngo["projects_completed"],
-
             "performance_score": ngo["performance_score"]
-
         })
 
     return {
@@ -349,7 +548,6 @@ def generate_csr_plan_rule_based(
     objective = request.objective.lower()
 
     suggested_expertise = "Community Development"
-
     suggested_kpis = []
 
     if (
@@ -413,39 +611,26 @@ def generate_csr_plan_rule_based(
         ]
 
     return {
-
         "objective": request.objective,
-
         "budget": request.budget,
-
         "location": request.location,
-
         "beneficiary": request.beneficiary,
-
         "suggested_expertise": suggested_expertise,
-
         "suggested_kpis": suggested_kpis,
-
         "recommended_budget_allocation": {
-
             "implementation": round(
                 request.budget * 0.70
             ),
-
             "monitoring": round(
                 request.budget * 0.10
             ),
-
             "infrastructure": round(
                 request.budget * 0.15
             ),
-
             "contingency": round(
                 request.budget * 0.05
             )
-
         }
-
     }
 
 
@@ -476,34 +661,20 @@ def create_tender(
     )
 
     new_tender = {
-
         "id": new_id,
-
         "title": tender.title,
-
         "company": tender.company,
-
         "description": tender.description,
-
         "domain": tender.domain,
-
         "location": tender.location,
-
         "beneficiary": tender.beneficiary,
-
         "budget": tender.budget,
-
         "expected_beneficiaries":
             tender.expected_beneficiaries,
-
         "status": "OPEN",
-
         "applications": [],
-
         "selected_ngo_id": None,
-
         "selected_ngo_name": None
-
     }
 
     tenders.append(new_tender)
@@ -511,11 +682,8 @@ def create_tender(
     save_tenders()
 
     return {
-
         "message": "Tender created successfully",
-
         "tender": new_tender
-
     }
 
 
@@ -525,7 +693,6 @@ def get_tender(tender_id: int):
     tender = find_tender(tender_id)
 
     if tender is None:
-
         raise HTTPException(
             status_code=404,
             detail="Tender not found"
@@ -547,14 +714,12 @@ def apply_to_tender(
     tender = find_tender(tender_id)
 
     if tender is None:
-
         raise HTTPException(
             status_code=404,
             detail="Tender not found"
         )
 
     if tender.get("status") != "OPEN":
-
         raise HTTPException(
             status_code=400,
             detail="Tender is not open for applications"
@@ -563,14 +728,12 @@ def apply_to_tender(
     ngo = find_ngo(application.ngo_id)
 
     if ngo is None:
-
         raise HTTPException(
             status_code=404,
             detail="NGO not found"
         )
 
     if "applications" not in tender:
-
         tender["applications"] = []
 
     for existing in tender["applications"]:
@@ -583,26 +746,18 @@ def apply_to_tender(
             )
 
     application_id = (
-        len(tender["applications"])
-        + 1
+        len(tender["applications"]) + 1
     )
 
     new_application = {
-
         "application_id": application_id,
-
         "ngo_id": application.ngo_id,
-
         "ngo_name": ngo["name"],
-
         "proposal": application.proposal,
-
         "proposed_budget":
             application.proposed_budget,
-
         "expected_beneficiaries":
             application.expected_beneficiaries
-
     }
 
     tender["applications"].append(
@@ -612,11 +767,8 @@ def apply_to_tender(
     save_tenders()
 
     return {
-
         "message": "Application submitted successfully",
-
         "application": new_application
-
     }
 
 
@@ -630,18 +782,14 @@ def get_applications(tender_id: int):
     tender = find_tender(tender_id)
 
     if tender is None:
-
         raise HTTPException(
             status_code=404,
             detail="Tender not found"
         )
 
     return {
-
         "tender_id": tender_id,
-
         "tender_title": tender["title"],
-
         "total_applications":
             len(
                 tender.get(
@@ -649,13 +797,11 @@ def get_applications(tender_id: int):
                     []
                 )
             ),
-
         "applications":
             tender.get(
                 "applications",
                 []
             )
-
     }
 
 
@@ -669,7 +815,6 @@ def evaluate_tender(tender_id: int):
     tender = find_tender(tender_id)
 
     if tender is None:
-
         raise HTTPException(
             status_code=404,
             detail="Tender not found"
@@ -681,7 +826,6 @@ def evaluate_tender(tender_id: int):
     )
 
     if not applications:
-
         raise HTTPException(
             status_code=400,
             detail="No applications available for evaluation"
@@ -699,25 +843,19 @@ def evaluate_tender(tender_id: int):
             continue
 
         csr_data = {
-
             "domain":
                 tender["domain"],
-
             "location":
                 tender["location"],
-
             "beneficiary":
                 tender["beneficiary"],
-
             "budget":
                 tender["budget"],
-
             "expertise":
                 application.get(
                     "proposal",
                     ""
                 )
-
         }
 
         match_results = rank_ngos(
@@ -744,37 +882,28 @@ def evaluate_tender(tender_id: int):
         )
 
         budget_score = calculate_budget_score(
-
             application["proposed_budget"],
-
             tender["budget"]
-
         )
 
         beneficiary_score = (
             calculate_beneficiary_score(
-
                 application[
                     "expected_beneficiaries"
                 ],
-
                 tender[
                     "expected_beneficiaries"
                 ]
-
             )
         )
 
         final_score = round(
-
             (
                 match_score * 0.70
                 + budget_score * 0.20
                 + beneficiary_score * 0.10
             ),
-
             2
-
         )
 
         ranked_applicants.append({
@@ -826,15 +955,11 @@ def evaluate_tender(tender_id: int):
                 match_result[
                     "why_this_ngo"
                 ]
-
         })
 
     ranked_applicants.sort(
-
         key=lambda x: x["final_score"],
-
         reverse=True
-
     )
 
     for index, applicant in enumerate(
@@ -847,14 +972,11 @@ def evaluate_tender(tender_id: int):
     tender["evaluation"] = {
 
         "ngo_match": "70%",
-
         "budget_fit": "20%",
-
         "beneficiary_reach": "10%",
 
         "ranked_applicants":
             ranked_applicants
-
     }
 
     save_tenders()
@@ -873,16 +995,12 @@ def evaluate_tender(tender_id: int):
         "evaluation_method": {
 
             "ngo_match": "70%",
-
             "budget_fit": "20%",
-
             "beneficiary_reach": "10%"
-
         },
 
         "ranked_applicants":
             ranked_applicants
-
     }
 
 
@@ -899,7 +1017,6 @@ def select_ngo(
     tender = find_tender(tender_id)
 
     if tender is None:
-
         raise HTTPException(
             status_code=404,
             detail="Tender not found"
@@ -910,7 +1027,6 @@ def select_ngo(
     )
 
     if ngo is None:
-
         raise HTTPException(
             status_code=404,
             detail="NGO not found"
@@ -922,26 +1038,19 @@ def select_ngo(
     )
 
     applicant = next(
-
         (
             application
             for application in applications
             if application["ngo_id"]
             == request.ngo_id
         ),
-
         None
-
     )
 
     if applicant is None:
-
         raise HTTPException(
-
             status_code=400,
-
             detail="NGO has not applied to this tender"
-
         )
 
     tender["selected_ngo_id"] = ngo["id"]
@@ -974,12 +1083,10 @@ def select_ngo(
 
             "name":
                 ngo["name"]
-
         },
 
         "status":
             "AWARDED"
-
     }
 
 
@@ -997,20 +1104,15 @@ def create_project(
     )
 
     if tender is None:
-
         raise HTTPException(
             status_code=404,
             detail="Tender not found"
         )
 
     if tender.get("status") != "AWARDED":
-
         raise HTTPException(
-
             status_code=400,
-
             detail="Tender must be awarded before creating a project"
-
         )
 
     selected_ngo_id = (
@@ -1018,13 +1120,9 @@ def create_project(
     )
 
     if selected_ngo_id is None:
-
         raise HTTPException(
-
             status_code=400,
-
             detail="No NGO has been selected"
-
         )
 
     selected_ngo_name = (
@@ -1032,13 +1130,11 @@ def create_project(
     )
 
     new_id = (
-
         max(
             [p["id"] for p in projects],
             default=0
         )
         + 1
-
     )
 
     new_project = {
@@ -1131,9 +1227,7 @@ def create_project(
                 "name": "Impact Assessment",
                 "status": "PENDING"
             }
-
         ]
-
     }
 
     projects.append(
@@ -1149,7 +1243,6 @@ def create_project(
 
         "project":
             new_project
-
     }
 
 
@@ -1163,7 +1256,6 @@ def get_projects():
 
         "projects":
             projects
-
     }
 
 
@@ -1175,13 +1267,9 @@ def get_project(project_id: int):
     )
 
     if project is None:
-
         raise HTTPException(
-
             status_code=404,
-
             detail="Project not found"
-
         )
 
     return project
@@ -1193,11 +1281,8 @@ def get_project(project_id: int):
 
 @app.put("/api/projects/{project_id}/progress")
 def update_project_progress(
-
     project_id: int,
-
     update: ProgressUpdate
-
 ):
 
     project = find_project(
@@ -1205,23 +1290,15 @@ def update_project_progress(
     )
 
     if project is None:
-
         raise HTTPException(
-
             status_code=404,
-
             detail="Project not found"
-
         )
 
     if update.budget_used > project["budget"]:
-
         raise HTTPException(
-
             status_code=400,
-
             detail="Budget used cannot exceed project budget"
-
         )
 
     project["beneficiaries_reached"] = (
@@ -1261,7 +1338,6 @@ def update_project_progress(
 
         "project":
             project
-
     }
 
 
@@ -1273,11 +1349,8 @@ def update_project_progress(
     "/api/projects/{project_id}/milestones/{milestone_id}/complete"
 )
 def complete_milestone(
-
     project_id: int,
-
     milestone_id: int
-
 ):
 
     project = find_project(
@@ -1285,39 +1358,24 @@ def complete_milestone(
     )
 
     if project is None:
-
         raise HTTPException(
-
             status_code=404,
-
             detail="Project not found"
-
         )
 
     milestone = next(
-
         (
-
             milestone
-
             for milestone in project["milestones"]
-
             if milestone["id"] == milestone_id
-
         ),
-
         None
-
     )
 
     if milestone is None:
-
         raise HTTPException(
-
             status_code=404,
-
             detail="Milestone not found"
-
         )
 
     milestone["status"] = "COMPLETED"
@@ -1331,7 +1389,6 @@ def complete_milestone(
 
         "milestone":
             milestone
-
     }
 
 
@@ -1349,13 +1406,9 @@ def get_project_impact(
     )
 
     if project is None:
-
         raise HTTPException(
-
             status_code=404,
-
             detail="Project not found"
-
         )
 
     budget = project["budget"]
@@ -1365,24 +1418,17 @@ def get_project_impact(
     if budget > 0:
 
         budget_utilization = round(
-
             (
                 project["budget_used"]
                 / budget
             ) * 100,
-
             2
-
         )
 
     completed_milestones = sum(
-
         1
-
         for milestone in project["milestones"]
-
         if milestone["status"] == "COMPLETED"
-
     )
 
     total_milestones = len(
@@ -1394,14 +1440,11 @@ def get_project_impact(
     if total_milestones > 0:
 
         milestone_progress = round(
-
             (
                 completed_milestones
                 / total_milestones
             ) * 100,
-
             2
-
         )
 
     return {
@@ -1441,7 +1484,6 @@ def get_project_impact(
 
         "status":
             project["status"]
-
     }
 
 
@@ -1468,43 +1510,27 @@ def get_dashboard():
     )
 
     active_projects = sum(
-
         1
-
         for project in projects
-
         if project["status"] == "IN_PROGRESS"
-
     )
 
     completed_projects = sum(
-
         1
-
         for project in projects
-
         if project["status"] == "COMPLETED"
-
     )
 
     open_tenders = sum(
-
         1
-
         for tender in tenders
-
         if tender.get("status") == "OPEN"
-
     )
 
     awarded_tenders = sum(
-
         1
-
         for tender in tenders
-
         if tender.get("status") == "AWARDED"
-
     )
 
     return {
@@ -1537,7 +1563,6 @@ def get_dashboard():
 
             "total_beneficiaries":
                 total_beneficiaries
-
         },
 
         "projects":
@@ -1545,7 +1570,6 @@ def get_dashboard():
 
         "recent_tenders":
             tenders[-5:]
-
     }
 
 
@@ -1561,11 +1585,8 @@ def allocate_csr_budget(
     if not request.priorities:
 
         raise HTTPException(
-
             status_code=400,
-
             detail="At least one priority is required"
-
         )
 
     base_percentage = (
@@ -1589,11 +1610,9 @@ def allocate_csr_budget(
         else:
 
             amount = round(
-
                 request.total_budget
                 * base_percentage
                 / 100
-
             )
 
             remaining -= amount
@@ -1611,7 +1630,6 @@ def allocate_csr_budget(
 
             "recommended_amount":
                 amount
-
         })
 
     return {
@@ -1624,7 +1642,6 @@ def allocate_csr_budget(
 
         "method":
             "Equal allocation across selected CSR priorities"
-
     }
 
 
@@ -1644,31 +1661,21 @@ def ai_explain_match(
     if ngo is None:
 
         raise HTTPException(
-
             status_code=404,
-
             detail="NGO not found"
-
         )
 
     match_results = rank_ngos(
-
         [ngo],
-
         request.csr_project
-
     )
 
     match_result = match_results[0]
 
     explanation = generate_match_explanation(
-
         request.csr_project,
-
         ngo,
-
         match_result
-
     )
 
     return {
@@ -1696,7 +1703,6 @@ def ai_explain_match(
 
         "ai_explanation":
             explanation
-
     }
 
 
@@ -1710,15 +1716,10 @@ def ai_generate_csr_plan(
 ):
 
     plan = generate_csr_plan(
-
         objective=request.objective,
-
         budget=request.budget,
-
         location=request.location,
-
         beneficiary=request.beneficiary
-
     )
 
     return {
@@ -1737,7 +1738,6 @@ def ai_generate_csr_plan(
 
         "ai_generated_plan":
             plan
-
     }
 
 
@@ -1749,11 +1749,8 @@ def ai_generate_csr_plan(
     "/api/ai/evaluate-proposal/{tender_id}/{ngo_id}"
 )
 def ai_evaluate_proposal(
-
     tender_id: int,
-
     ngo_id: int
-
 ):
 
     tender = find_tender(
@@ -1763,11 +1760,8 @@ def ai_evaluate_proposal(
     if tender is None:
 
         raise HTTPException(
-
             status_code=404,
-
             detail="Tender not found"
-
         )
 
     ngo = find_ngo(
@@ -1777,42 +1771,29 @@ def ai_evaluate_proposal(
     if ngo is None:
 
         raise HTTPException(
-
             status_code=404,
-
             detail="NGO not found"
-
         )
 
     application = next(
-
         (
-
             application
-
             for application
             in tender.get(
                 "applications",
                 []
             )
-
             if application["ngo_id"]
             == ngo_id
-
         ),
-
         None
-
     )
 
     if application is None:
 
         raise HTTPException(
-
             status_code=404,
-
             detail="NGO has not applied to this tender"
-
         )
 
     proposal = application.get(
@@ -1823,21 +1804,14 @@ def ai_evaluate_proposal(
     if not proposal:
 
         raise HTTPException(
-
             status_code=400,
-
             detail="Proposal is empty"
-
         )
 
     evaluation = evaluate_proposal(
-
         tender=tender,
-
         ngo=ngo,
-
         proposal=proposal
-
     )
 
     return {
@@ -1859,5 +1833,4 @@ def ai_evaluate_proposal(
 
         "ai_evaluation":
             evaluation
-
     }
