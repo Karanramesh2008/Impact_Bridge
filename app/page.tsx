@@ -24,7 +24,6 @@ export default function Dashboard() {
   const [budget, setBudget] = useState('2500000');
   const [selectedNgo, setSelectedNgo] = useState<Ngo | null>(null);
   const [ngoResults, setNgoResults] = useState<Ngo[]>([]);
-  
 
 const handleSubmitForm = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -70,6 +69,10 @@ const handleSubmitForm = async (e: React.FormEvent) => {
     setActiveTab('detail');
   };
 
+  const handleLogout = () => {
+    window.location.href = '/logout';
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
       {/* Top Navbar */}
@@ -78,19 +81,27 @@ const handleSubmitForm = async (e: React.FormEvent) => {
           <div className="bg-blue-600 text-white font-bold px-3 py-1.5 rounded-lg text-lg">IB</div>
           <span className="text-xl font-extrabold tracking-tight text-slate-900">ImpactBridge</span>
         </div>
-        
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+        >
+          <span>↪</span>
+          <span>Logout</span>
+        </button>
       </nav>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-8 py-8">
-        
+
         {/* Header section */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Corporate CSR Dashboard</h1>
             <p className="text-slate-500 mt-1">Discover, qualify, and select verified NGO implementation partners.</p>
           </div>
-          <button 
+          <button
             onClick={() => setActiveTab('form')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-md transition-all flex items-center space-x-2"
           >
@@ -125,7 +136,7 @@ const handleSubmitForm = async (e: React.FormEvent) => {
               <p className="text-slate-500 max-w-md mx-auto mb-6">
                 Click the &quot;Create CSR Initiative&quot; button above to input your project requirements and see our AI matching engine score the best NGOs.
               </p>
-              <button 
+              <button
                 onClick={() => setActiveTab('form')}
                 className="bg-slate-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-slate-800 transition-all"
               >
@@ -146,20 +157,20 @@ const handleSubmitForm = async (e: React.FormEvent) => {
             <form onSubmit={handleSubmitForm} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Project Title</label>
-                <input 
-                  type="text" 
-                  value={projectName} 
+                <input
+                  type="text"
+                  value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  required 
+                  required
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">CSR Focus Domain</label>
-                  <select 
-                    value={domain} 
+                  <select
+                    value={domain}
                     onChange={(e) => setDomain(e.target.value)}
                     className="w-full border border-slate-300 rounded-xl px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                   >
@@ -171,28 +182,28 @@ const handleSubmitForm = async (e: React.FormEvent) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Target Location</label>
-                  <input 
-                    type="text" 
-                    value={location} 
+                  <input
+                    type="text"
+                    value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    required 
+                    required
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Allocated Budget (₹)</label>
-                <input 
-                  type="number" 
-                  value={budget} 
+                <input
+                  type="number"
+                  value={budget}
                   onChange={(e) => setBudget(e.target.value)}
                   className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  required 
+                  required
                 />
               </div>
 
-              <button 
+              <button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl shadow-md transition-all mt-4"
               >
@@ -234,7 +245,7 @@ const handleSubmitForm = async (e: React.FormEvent) => {
                       <p className="text-xs text-slate-400">Impact Potential</p>
                       <p className="text-sm font-bold text-slate-700">{ngo.impact_score}/100</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => handleViewDetail(ngo)}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium w-full md:w-auto transition-all"
                     >
@@ -334,7 +345,7 @@ const handleSubmitForm = async (e: React.FormEvent) => {
                   </p>
                 </div>
 
-                <button 
+                <button
                   onClick={() => alert(`Invitation sent to ${selectedNgo.ngo_name} for competitive tender evaluation!`)}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 rounded-xl shadow-md transition-all text-center"
                 >
