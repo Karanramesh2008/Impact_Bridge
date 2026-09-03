@@ -1,0 +1,45 @@
+[
+    {
+        "id": 1,
+        "title": "Rural Digital Education Initiative",
+        "company": "ImpactBridge Corporate Partner",
+        "domain": "Education",
+        "location": "Tamil Nadu",
+        "beneficiary": "Students",
+        "budget": 2500000,
+        "expertise": "Digital Education",
+        "description": "Improve access to digital education for students in rural Tamil Nadu.",
+        "deadline": "2026-10-15",
+        "status": "OPEN",
+        "created_at": "2026-09-03",
+        "applications": [
+            {
+                "application_id": 1,
+                "ngo_id": 1,
+                "ngo_name": "EduReach Foundation",
+                "proposal": "We will implement digital learning centers and STEM-based teacher training across rural schools in Tamil Nadu.",
+                "proposed_budget": 2500000,
+                "expected_beneficiaries": 1200,
+                "status": "SUBMITTED"
+            },
+            {
+                "application_id": 2,
+                "ngo_id": 11,
+                "ngo_name": "BrightMinds Initiative",
+                "proposal": "We will establish STEM learning programs and train teachers in digital education across rural schools in Tamil Nadu.",
+                "proposed_budget": 2400000,
+                "expected_beneficiaries": 1100,
+                "status": "SUBMITTED"
+            },
+            {
+                "application_id": 3,
+                "ngo_id": 41,
+                "ngo_name": "FutureClass Foundation",
+                "proposal": "We will provide digital education and STEM infrastructure to rural students in Tamil Nadu.",
+                "proposed_budget": 2600000,
+                "expected_beneficiaries": 1000,
+                "status": "SUBMITTED"
+            }
+        ]
+    }
+]
