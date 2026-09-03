@@ -68,7 +68,7 @@ The **Optimize It** option recommends a quotation using a balanced cost and deli
 - Budget-fit analysis
 - Tender quotation optimization
 
-## 📁 Important Project Structure
+## 📁 Project Structure
 
 ```text
 Impact_Bridge/
