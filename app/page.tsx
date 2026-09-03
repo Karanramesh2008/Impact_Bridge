@@ -26,21 +26,21 @@ export default function Dashboard() {
   const [ngoResults, setNgoResults] = useState<Ngo[]>([]);
   
 
- const handleSubmitForm = async (e: React.FormEvent) => {
+const handleSubmitForm = async (e: React.FormEvent) => {
   e.preventDefault();
 
   try {
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/match`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           domain: domain,
           location: location,
-          beneficiary: 'Rural Students',
+          beneficiary: "Students",
           budget: Number(budget),
           expertise: domain,
         }),
@@ -48,19 +48,20 @@ export default function Dashboard() {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to get NGO matches');
+      const errorData = await response.text();
+      console.error("API Error:", errorData);
+      throw new Error("Failed to get NGO matches");
     }
 
     const data = await response.json();
 
-    console.log('Backend response:', data);
+    console.log("API response:", data);
 
     setNgoResults(data.matches);
-    setActiveTab('matching');
+    setActiveTab("matching");
 
   } catch (error) {
-    console.error('API Error:', error);
-    alert('Could not connect to backend. Make sure FastAPI is running.');
+    console.error("API Error:", error);
   }
 };
 

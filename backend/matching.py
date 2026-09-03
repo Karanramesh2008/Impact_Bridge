@@ -114,15 +114,49 @@ def calculate_match(ngo, csr):
         score += beneficiary_match
 
     # 4. Budget Fit - 15%
-    budget_match = 0
+    # budget_fit = 0-100 score shown to the user
+    # budget_match = 0-15 points contributed to overall match
 
-    if ngo["budget_min"] <= csr["budget"] <= ngo["budget_max"]:
-        budget_match = 15
-        score += budget_match
+    csr_budget = csr["budget"]
+    min_budget = ngo["budget_min"]
+    max_budget = ngo["budget_max"]
 
-    elif csr["budget"] < ngo["budget_min"]:
-        budget_match = 5
-        score += budget_match
+    if min_budget <= csr_budget <= max_budget:
+
+        # Ideal budget is the middle of the NGO's supported range
+        midpoint = (min_budget + max_budget) / 2
+        half_range = (max_budget - min_budget) / 2
+
+        if half_range == 0:
+            budget_fit = 100
+        else:
+            distance = abs(csr_budget - midpoint)
+
+            # 100 at midpoint, 60 at either edge
+            budget_fit = 100 - (distance / half_range) * 40
+
+        budget_fit = round(max(60, min(100, budget_fit)), 2)
+
+    else:
+        # Outside the NGO's preferred range
+        if csr_budget < min_budget:
+            distance = min_budget - csr_budget
+        else:
+            distance = csr_budget - max_budget
+
+        range_size = max_budget - min_budget
+
+        if range_size == 0:
+            budget_fit = 0
+        else:
+            budget_fit = 60 - (distance / range_size) * 60
+
+        budget_fit = round(max(0, min(59, budget_fit)), 2)
+
+    # Convert 0-100 budget score into the 15-point match weight
+    budget_match = round((budget_fit / 100) * 15, 2)
+
+    score += budget_match
 
     # 5. Expertise Match - 10%
     expertise_match = 0
@@ -172,9 +206,17 @@ def calculate_match(ngo, csr):
             f"Works with {csr['beneficiary']}"
         )
 
-    if budget_match == 15:
+    if budget_fit >= 80:
         reasons.append(
-            f"Budget of ₹{csr['budget']:,} fits its project range"
+            f"Budget of ₹{csr['budget']:,} is highly compatible with its project range"
+        )
+    elif budget_fit >= 60:
+        reasons.append(
+            f"Budget of ₹{csr['budget']:,} is compatible with its project range"
+        )
+    else:
+        reasons.append(
+            f"CSR budget has limited compatibility with its preferred project range"
         )
 
     if expertise_match > 0:
@@ -214,7 +256,7 @@ def calculate_match(ngo, csr):
         "match_score": round(score, 2),
 
         "impact_score": impact_score,
-        "budget_fit": budget_match,
+        "budget_fit": budget_fit,
         "risk_score": risk_score,
 
         "risk_level": risk_level,
