@@ -214,12 +214,18 @@ def calculate_match(ngo, csr):
         "match_score": round(score, 2),
 
         "impact_score": impact_score,
-
+        "budget_fit": budget_match,
         "risk_score": risk_score,
 
         "risk_level": risk_level,
 
         "why_this_ngo": explanation,
+        "domains": ngo["domains"],
+        "locations": ngo["locations"],
+        "expertise": ngo["expertise"],
+        "years_experience": ngo["years_experience"],
+        "performance_score": ngo["performance_score"],
+
 
         "breakdown": {
             "domain": domain_match,

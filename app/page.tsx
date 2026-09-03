@@ -4,13 +4,16 @@ import { useState } from 'react';
 import mockData from './mockData.json';
 
 interface Ngo {
-  id: number;
-  name: string;
+  ngo_id: number;
+  ngo_name: string;
   match_score: number;
-  domains: string[];
-  locations: string[];
+  impact_score: number;
+  risk_score: number;
+  risk_level: string;
   budget_fit: number;
-  impact_potential: number;
+  why_this_ngo: string;
+  domains?: string[];
+  locations?: string[];
 }
 
 export default function Dashboard() {
@@ -20,11 +23,46 @@ export default function Dashboard() {
   const [location, setLocation] = useState('Tamil Nadu');
   const [budget, setBudget] = useState('2500000');
   const [selectedNgo, setSelectedNgo] = useState<Ngo | null>(null);
+  const [ngoResults, setNgoResults] = useState<Ngo[]>([]);
+  
 
-  const handleSubmitForm = (e: React.FormEvent) => {
-    e.preventDefault();
+ const handleSubmitForm = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/match`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          domain: domain,
+          location: location,
+          beneficiary: 'Rural Students',
+          budget: Number(budget),
+          expertise: domain,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to get NGO matches');
+    }
+
+    const data = await response.json();
+
+    console.log('Backend response:', data);
+
+    setNgoResults(data.matches);
     setActiveTab('matching');
-  };
+
+  } catch (error) {
+    console.error('API Error:', error);
+    alert('Could not connect to backend. Make sure FastAPI is running.');
+  }
+};
 
   const handleViewDetail = (ngo: Ngo) => {
     setSelectedNgo(ngo);
@@ -177,23 +215,23 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              {mockData.map((ngo: Ngo) => (
-                <div key={ngo.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              {ngoResults.map((ngo: Ngo) => (
+                <div key={ngo.ngo_id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div>
                     <div className="flex items-center space-x-3">
-                      <h3 className="text-xl font-bold text-slate-900">{ngo.name}</h3>
+                      <h3 className="text-xl font-bold text-slate-900">{ngo.ngo_name}</h3>
                       <span className="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-200">
                         {ngo.match_score}% Match
                       </span>
                     </div>
                     <p className="text-sm text-slate-500 mt-1">
-                      Domains: {ngo.domains.join(', ')} • Location Focus: {ngo.locations.join(', ')}
+                      Domains: {ngo.domains?.join(', ') || 'N/A'} • Location Focus: {ngo.locations?.join(', ') || 'N/A'}
                     </p>
                   </div>
                   <div className="flex items-center space-x-3 w-full md:w-auto">
                     <div className="text-right hidden md:block">
                       <p className="text-xs text-slate-400">Impact Potential</p>
-                      <p className="text-sm font-bold text-slate-700">{ngo.impact_potential}/100</p>
+                      <p className="text-sm font-bold text-slate-700">{ngo.impact_score}/100</p>
                     </div>
                     <button 
                       onClick={() => handleViewDetail(ngo)}
@@ -213,7 +251,7 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">{selectedNgo.name} — AI Verification & Insights</h2>
+                <h2 className="text-2xl font-bold text-slate-900">{selectedNgo.ngo_name} — AI Verification & Insights</h2>
                 <p className="text-sm text-slate-500">Comprehensive partner due-diligence report</p>
               </div>
               <button onClick={() => setActiveTab('matching')} className="text-sm text-blue-600 hover:underline font-medium">
@@ -232,7 +270,7 @@ export default function Dashboard() {
                   </div>
                   <h3 className="text-lg font-bold mb-2">Why this NGO is a strong match:</h3>
                   <p className="text-blue-100 text-sm leading-relaxed">
-                    {selectedNgo.name} demonstrates a high degree of alignment with your {domain} requirement in {location}. They exhibit robust historical execution capability, optimized budget ranges, and verified operational presence in target beneficiary regions.
+                    {selectedNgo.ngo_name} demonstrates a high degree of alignment with your {domain} requirement in {location}. They exhibit robust historical execution capability, optimized budget ranges, and verified operational presence in target beneficiary regions.
                   </p>
                 </div>
 
@@ -252,10 +290,10 @@ export default function Dashboard() {
                     <div>
                       <div className="flex justify-between text-sm mb-1 font-medium text-slate-700">
                         <span>Impact Potential Index</span>
-                        <span className="text-blue-600 font-bold">{selectedNgo.impact_potential}/100</span>
+                        <span className="text-blue-600 font-bold">{selectedNgo.impact_score}/100</span>
                       </div>
                       <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${selectedNgo.impact_potential}%` }}></div>
+                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${selectedNgo.impact_score}%` }}></div>
                       </div>
                     </div>
 
@@ -296,7 +334,7 @@ export default function Dashboard() {
                 </div>
 
                 <button 
-                  onClick={() => alert(`Invitation sent to ${selectedNgo.name} for competitive tender evaluation!`)}
+                  onClick={() => alert(`Invitation sent to ${selectedNgo.ngo_name} for competitive tender evaluation!`)}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 rounded-xl shadow-md transition-all text-center"
                 >
                   Invite to CSR Tender 🚀
