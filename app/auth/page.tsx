@@ -13,8 +13,9 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
 
@@ -23,15 +24,29 @@ export default function AuthPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, name, email, password }),
+      });
+      const data = await response.json();
 
-    localStorage.setItem('impactbridge_authenticated', 'true');
-    localStorage.setItem('impactbridge_user_email', email);
-    if (name.trim()) localStorage.setItem('impactbridge_user_name', name.trim());
-    router.replace('/');
+      if (!response.ok) {
+        throw new Error(data.detail || 'Authentication failed.');
+      }
+
+      localStorage.setItem('impactbridge_authenticated', 'true');
+      localStorage.setItem('impactbridge_user_email', data.user.email);
+      localStorage.setItem('impactbridge_user_name', data.user.name);
+      localStorage.setItem('impactbridge_auth_token', data.token);
+      router.replace('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,31 +70,13 @@ export default function AuthPage() {
           <p className="text-sm text-slate-500 mt-1 mb-6">{mode === 'login' ? 'Login to continue to your CSR dashboard.' : 'Set up your ImpactBridge account to get started.'}</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Full name</label>
-                <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Your name" required />
-              </div>
-            )}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="you@company.com" required />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-              <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="••••••••" minLength={6} required />
-            </div>
-            {mode === 'signup' && (
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1">Confirm password</label>
-                <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="••••••••" minLength={6} required />
-              </div>
-            )}
+            {mode === 'signup' && <div><label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Full name</label><input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Your name" required /></div>}
+            <div><label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email</label><input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="you@company.com" required /></div>
+            <div><label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">Password</label><input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="••••••••" minLength={6} required /></div>
+            {mode === 'signup' && <div><label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1">Confirm password</label><input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="••••••••" minLength={6} required /></div>}
             {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>}
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-md transition">{mode === 'login' ? 'Login to ImpactBridge' : 'Create ImpactBridge Account'}</button>
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl shadow-md transition">{loading ? 'Please wait...' : mode === 'login' ? 'Login to ImpactBridge' : 'Create ImpactBridge Account'}</button>
           </form>
-
-          <p className="text-xs text-slate-400 mt-6 text-center">Demo authentication for the hackathon build. Connect this form to a real auth backend before production use.</p>
         </div>
       </div>
     </main>
