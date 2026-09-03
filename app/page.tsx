@@ -3,20 +3,30 @@
 import { useState } from 'react';
 import mockData from './mockData.json';
 
+interface Ngo {
+  id: number;
+  name: string;
+  match_score: number;
+  domains: string[];
+  locations: string[];
+  budget_fit: number;
+  impact_potential: number;
+}
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'form' | 'matching' | 'detail'>('dashboard');
   const [projectName, setProjectName] = useState('Rural Education Initiative');
   const [domain, setDomain] = useState('Education');
   const [location, setLocation] = useState('Tamil Nadu');
   const [budget, setBudget] = useState('2500000');
-  const [selectedNgo, setSelectedNgo] = useState<any>(null);
+  const [selectedNgo, setSelectedNgo] = useState<Ngo | null>(null);
 
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
     setActiveTab('matching');
   };
 
-  const handleViewDetail = (ngo: any) => {
+  const handleViewDetail = (ngo: Ngo) => {
     setSelectedNgo(ngo);
     setActiveTab('detail');
   };
@@ -29,9 +39,7 @@ export default function Dashboard() {
           <div className="bg-blue-600 text-white font-bold px-3 py-1.5 rounded-lg text-lg">IB</div>
           <span className="text-xl font-extrabold tracking-tight text-slate-900">ImpactBridge</span>
         </div>
-        <div className="text-sm font-medium text-slate-500">
-          Microsoft Innovation Club Wildcard Hackathon 🚀
-        </div>
+        
       </nav>
 
       {/* Main Container */}
@@ -169,7 +177,7 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              {mockData.map((ngo) => (
+              {mockData.map((ngo: Ngo) => (
                 <div key={ngo.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div>
                     <div className="flex items-center space-x-3">
