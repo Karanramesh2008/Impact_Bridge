@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "EduReach Foundation",
+    "match_score": 94,
+    "domains": ["Education"],
+    "locations": ["Tamil Nadu"],
+    "budget_fit": 93,
+    "impact_potential": 91
+  },
+  {
+    "id": 2,
+    "name": "RuralFuture Foundation",
+    "match_score": 87,
+    "domains": ["Education", "Rural Development"],
+    "locations": ["Tamil Nadu", "Karnataka"],
+    "budget_fit": 85,
+    "impact_potential": 88
+  }
+]
