@@ -1,4 +1,20 @@
 {
-  "tenders": [],
+  "tenders": [
+    {
+      "id": "tender_demo_rural_digital_learning",
+      "title": "Rural Digital Learning Center Project",
+      "description": "We are looking for a CSR partner to support the setup of a digital learning center for students in rural schools around Vellore. The project will provide computers, internet connectivity, digital learning content, and basic STEM training. The selected CSR partner will provide financial support and may also contribute technology resources. The project aims to benefit approximately 500 students.",
+      "domain": "Education",
+      "location": "Vellore, Tamil Nadu",
+      "budget": 500000,
+      "deadline": "2026-10-30",
+      "invitedNgos": [],
+      "invitedCsrs": [],
+      "createdBy": "demo.ngo@impactbridge.test",
+      "createdByRole": "NGO",
+      "createdAt": "2026-09-04T00:00:00.000Z",
+      "status": "OPEN"
+    }
+  ],
   "quotes": []
 }
