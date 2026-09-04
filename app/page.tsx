@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import mockData from './mockData.json';
 
 interface Ngo {
   ngo_id: number;
@@ -22,47 +21,46 @@ export default function Dashboard() {
   const [domain, setDomain] = useState('Education');
   const [location, setLocation] = useState('Tamil Nadu');
   const [budget, setBudget] = useState('2500000');
+  const [deadline, setDeadline] = useState('2026-10-30');
   const [selectedNgo, setSelectedNgo] = useState<Ngo | null>(null);
   const [ngoResults, setNgoResults] = useState<Ngo[]>([]);
 
-const handleSubmitForm = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/match`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          domain: domain,
-          location: location,
-          beneficiary: "Students",
-          budget: Number(budget),
-          expertise: domain,
-        }),
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/match`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            domain,
+            location,
+            beneficiary: 'Students',
+            budget: Number(budget),
+            expertise: domain,
+            deadline,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('API Error:', errorData);
+        throw new Error('Failed to get NGO matches');
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("API Error:", errorData);
-      throw new Error("Failed to get NGO matches");
+      const data = await response.json();
+      console.log('API response:', data);
+      setNgoResults(data.matches);
+      setActiveTab('matching');
+    } catch (error) {
+      console.error('API Error:', error);
     }
-
-    const data = await response.json();
-
-    console.log("API response:", data);
-
-    setNgoResults(data.matches);
-    setActiveTab("matching");
-
-  } catch (error) {
-    console.error("API Error:", error);
-  }
-};
+  };
 
   const handleViewDetail = (ngo: Ngo) => {
     setSelectedNgo(ngo);
@@ -75,13 +73,11 @@ const handleSubmitForm = async (e: React.FormEvent) => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      {/* Top Navbar */}
       <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
           <div className="bg-blue-600 text-white font-bold px-3 py-1.5 rounded-lg text-lg">IB</div>
           <span className="text-xl font-extrabold tracking-tight text-slate-900">ImpactBridge</span>
         </div>
-
         <button
           type="button"
           onClick={handleLogout}
@@ -92,10 +88,7 @@ const handleSubmitForm = async (e: React.FormEvent) => {
         </button>
       </nav>
 
-      {/* Main Container */}
       <main className="max-w-7xl mx-auto px-8 py-8">
-
-        {/* Header section */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Corporate CSR Dashboard</h1>
@@ -109,7 +102,6 @@ const handleSubmitForm = async (e: React.FormEvent) => {
           </button>
         </div>
 
-        {/* View 1: Dashboard Home */}
         {activeTab === 'dashboard' && (
           <div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -146,7 +138,6 @@ const handleSubmitForm = async (e: React.FormEvent) => {
           </div>
         )}
 
-        {/* View 2: Create CSR Initiative Form */}
         {activeTab === 'form' && (
           <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm max-w-2xl mx-auto">
             <div className="flex justify-between items-center mb-6">
@@ -192,15 +183,31 @@ const handleSubmitForm = async (e: React.FormEvent) => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Allocated Budget (₹)</label>
-                <input
-                  type="number"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Allocated Budget (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Project Deadline</label>
+                  <input
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    min="2026-01-01"
+                    max="2026-12-31"
+                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+                    required
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Select a deadline within 2026.</p>
+                </div>
               </div>
 
               <button
@@ -213,13 +220,14 @@ const handleSubmitForm = async (e: React.FormEvent) => {
           </div>
         )}
 
-        {/* View 3: NGO Recommendations List */}
         {activeTab === 'matching' && (
           <div>
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Recommended NGO Shortlist</h2>
-                <p className="text-sm text-slate-500">Showing matches for &quot;{projectName}&quot; in {location} ({domain})</p>
+                <p className="text-sm text-slate-500">
+                  Showing matches for &quot;{projectName}&quot; in {location} ({domain}) • Deadline: {deadline}
+                </p>
               </div>
               <button onClick={() => setActiveTab('form')} className="text-sm text-blue-600 hover:underline font-medium">
                 ← Edit Requirements
@@ -227,7 +235,7 @@ const handleSubmitForm = async (e: React.FormEvent) => {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              {ngoResults.map((ngo: Ngo) => (
+              {ngoResults.map((ngo) => (
                 <div key={ngo.ngo_id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div>
                     <div className="flex items-center space-x-3">
@@ -254,16 +262,20 @@ const handleSubmitForm = async (e: React.FormEvent) => {
                   </div>
                 </div>
               ))}
+              {!ngoResults.length && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-500">
+                  No NGO matches returned yet. Please edit the requirements and try again.
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* View 4: NGO Details & AI Insights View */}
         {activeTab === 'detail' && selectedNgo && (
           <div>
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">{selectedNgo.ngo_name} — AI Verification & Insights</h2>
+                <h2 className="text-2xl font-bold text-slate-900">{selectedNgo.ngo_name} — AI Verification &amp; Insights</h2>
                 <p className="text-sm text-slate-500">Comprehensive partner due-diligence report</p>
               </div>
               <button onClick={() => setActiveTab('matching')} className="text-sm text-blue-600 hover:underline font-medium">
@@ -272,7 +284,6 @@ const handleSubmitForm = async (e: React.FormEvent) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Left Column: AI Explanation */}
               <div className="md:col-span-2 space-y-6">
                 <div className="bg-gradient-to-br from-blue-900 to-indigo-900 text-white p-6 rounded-2xl shadow-sm">
                   <div className="flex items-center space-x-2 mb-3">
@@ -295,35 +306,41 @@ const handleSubmitForm = async (e: React.FormEvent) => {
                         <span className="text-emerald-600 font-bold">{selectedNgo.match_score}%</span>
                       </div>
                       <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                        <div className="bg-emerald-500 h-2.5 rounded-full" style={{ width: `${selectedNgo.match_score}%` }}></div>
+                        <div className="bg-emerald-500 h-2.5 rounded-full" style={{ width: `${selectedNgo.match_score}%` }} />
                       </div>
                     </div>
-
                     <div>
                       <div className="flex justify-between text-sm mb-1 font-medium text-slate-700">
                         <span>Impact Potential Index</span>
                         <span className="text-blue-600 font-bold">{selectedNgo.impact_score}/100</span>
                       </div>
                       <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${selectedNgo.impact_score}%` }}></div>
+                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${selectedNgo.impact_score}%` }} />
                       </div>
                     </div>
-
                     <div>
                       <div className="flex justify-between text-sm mb-1 font-medium text-slate-700">
                         <span>Budget Fit Score</span>
                         <span className="text-indigo-600 font-bold">{selectedNgo.budget_fit}/100</span>
                       </div>
                       <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                        <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${selectedNgo.budget_fit}%` }}></div>
+                        <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${selectedNgo.budget_fit}%` }} />
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Right Column: Compliance & Action */}
               <div className="space-y-6">
+                <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4">Project Summary</h3>
+                  <div className="space-y-3 text-sm text-slate-700">
+                    <div className="flex justify-between gap-4"><span>Project</span><span className="font-semibold text-right">{projectName}</span></div>
+                    <div className="flex justify-between gap-4"><span>Budget</span><span className="font-semibold">₹{Number(budget).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between gap-4"><span>Deadline</span><span className="font-semibold">{deadline}</span></div>
+                  </div>
+                </div>
+
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
                   <h3 className="text-lg font-bold text-slate-900 mb-4">Due-Diligence Status</h3>
                   <ul className="space-y-3 text-sm text-slate-700">
@@ -355,7 +372,6 @@ const handleSubmitForm = async (e: React.FormEvent) => {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
